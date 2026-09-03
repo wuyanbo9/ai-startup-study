@@ -20,10 +20,7 @@ description: 每次深度分析一家 AI 创业公司，帮助用户持续学习
 └── index.html                    # 生成物，勿手改
 ```
 
-- **本机路径**：`/Users/joey/Projects/ai-startup-study/reports/`
-- **云端 / routine 里**：用仓库相对路径 `reports/`
-
-先按仓库相对路径找；找不到再用上面的本机绝对路径。
+路径一律用**仓库相对路径**（`reports/`、`build_dashboard.py`）。云端 routine 里仓库就 clone 在工作目录；本地用时先 `cd` 到这个仓库的检出目录再操作。
 **不要**写到 `~/.claude/` 下面 —— 那是 Claude 的配置目录，写入会触发敏感文件权限询问，无人值守的定时任务会直接卡死。
 
 ## 执行流程
