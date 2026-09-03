@@ -2,7 +2,7 @@
 
 每天一家 AI 创业公司的深度分析，自动生成、自动归档、不重复。
 
-**[→ 在线看板](https://wuyanbo9.github.io/ai-startup-study/)**
+**[→ 在线看板](https://wuyb.com/ai-startup-study/)**
 
 ## 这是什么
 
