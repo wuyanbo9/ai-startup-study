@@ -12,9 +12,12 @@ description: 每次深度分析一家 AI 创业公司，帮助用户持续学习
 归档是一个独立的 git 仓库：`ai-startup-study`
 
 ```
-<仓库根>/reports/
-├── INDEX.md                      # 已分析公司总表（先读它）
-└── YYYY-MM-DD-<slug>.md          # 单篇报告
+<仓库根>/
+├── reports/
+│   ├── INDEX.md                  # 已分析公司总表（先读它）
+│   └── YYYY-MM-DD-<slug>.md      # 单篇报告
+├── build_dashboard.py            # 看板生成器
+└── index.html                    # 生成物，勿手改
 ```
 
 - **本机路径**：`/Users/joey/Projects/ai-startup-study/reports/`
@@ -82,7 +85,17 @@ description: 每次深度分析一家 AI 创业公司，帮助用户持续学习
 
 追加一行到表格顶部，更新总数和赛道覆盖清单。
 
-### 第 6 步：在对话里输出完整报告
+### 第 6 步：重新生成看板
+
+```
+python3 build_dashboard.py
+```
+
+它从 `reports/` 的全部报告重建仓库根目录的 `index.html`（自包含单文件看板，浏览器直接打开，卡片可展开全文）。**不要手改 `index.html`** —— 它是生成物，改了下次就被覆盖。要改样式或抽取逻辑就改 `build_dashboard.py`。
+
+生成器依赖报告遵循下面的模板：frontmatter 的 `company` / `sector` / `date` / `arr` / `valuation` 字段、增长快照表里的「增长倍数」和「人均创收」两行、以及 `## 3. 北极星指标` 这一节。模板变了就要同步改生成器。
+
+### 第 7 步：在对话里输出完整报告
 
 归档是给未来的，对话输出是给现在的。**把报告全文贴在最终回复里**，不要只说「已保存到 xxx」。用中文。
 
