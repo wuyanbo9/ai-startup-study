@@ -385,9 +385,12 @@ def render_timeline_svg(m):
                        f'stroke="var(--rule)" stroke-width="1"/>')
             for i, line in enumerate(lines):
                 ty = (cy + 34 + i * 13) if below else (cy - 24 - (len(lines) - 1 - i) * 13)
+                # a surface-coloured halo keeps the note legible where it
+                # crosses the series line
                 out.append(f'<text x="{tx:.1f}" y="{ty:.1f}" '
                            f'text-anchor="{anchor}" font-size="11" font-weight="600" '
-                           f'fill="var(--secondary)">{esc(line)}</text>')
+                           f'paint-order="stroke" stroke="var(--surface)" stroke-width="3.5" '
+                           f'stroke-linejoin="round" fill="var(--secondary)">{esc(line)}</text>')
 
     for p, x in ((pts[0], xs[0]), (pts[-1], xs[-1])):
         anchor = "start" if x == xs[0] else "end"
