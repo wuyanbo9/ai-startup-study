@@ -41,44 +41,6 @@ def parse_frontmatter(text):
     return meta, text[end + 4:]
 
 
-def table_row(body, label):
-    """Pull the value cell out of a `| **label** | value |` row."""
-    m = re.search(r"^\|\s*\*{0,2}" + re.escape(label) + r"\*{0,2}\s*\|(.+?)\|\s*$",
-                  body, re.MULTILINE)
-    return m.group(1).strip() if m else ""
-
-
-def north_star(body):
-    """The metric itself, out of section 3.
-
-    Reports state it three ways: a `- **North Star…**` bullet with the metric
-    inside the bold, the same bullet with it after the colon, or a bare
-    paragraph when the report says the company never published one.
-    """
-    sec = re.search(r"^##\s*3\..*?北极星.*?$(.*?)(?=^##\s)", body, re.MULTILINE | re.DOTALL)
-    if not sec:
-        return ""
-    chunk = sec.group(1)
-    line = ""
-    for pattern in (r"^-\s*(\*\*North Star.+)$", r"^-\s*(.+)$", r"^(?!#)(\S.+)$"):
-        m = re.search(pattern, chunk, re.MULTILINE)
-        if m:
-            line = m.group(1)
-            break
-    if not line:
-        return ""
-    line = re.sub(r"\*\*|`", "", line)
-    line = re.sub(r"^\s*North Star[^：:]*[：:]\s*", "", line)
-    line = line.lstrip("：: 。")
-    sentences = [s for s in line.split("。") if s.strip()]
-    if not sentences:
-        return ""
-    out = sentences[0]
-    if len(out) < 14 and len(sentences) > 1:
-        out += "。" + sentences[1]
-    return (out[:150] + "…") if len(out) > 150 else out + "。"
-
-
 # --- the business-model diagram ---------------------------------------------
 
 def parse_model(body):
@@ -543,12 +505,6 @@ def load_reports():
             "company": meta.get("company", path.stem),
             "sector": meta.get("sector", "未分类"),
             "date": meta.get("date", path.stem[:10]),
-            "tier": meta.get("growth_tier", ""),
-            "arr": meta.get("arr", "未公开"),
-            "valuation": meta.get("valuation", "未公开"),
-            "growth": table_row(body, "增长倍数") or "见报告",
-            "per_head": table_row(body, "人均创收"),
-            "north_star": north_star(body),
             "timeline": render_timeline_svg(parse_model(body) or {}),
             "html": render_markdown(body, parse_model(body)),
         })
@@ -577,15 +533,7 @@ def build(items):
         <span class="date">{html.escape(it['date'])}</span>
       </button>
       {f'<div class="flow-wrap">{it["timeline"]}</div>' if it["timeline"] else ""}
-      <div class="report" id="r{n}" hidden>
-      <dl class="facts">
-        <div><dt>ARR</dt><dd>{inline(it['arr'])}</dd></div>
-        <div><dt>增长倍数</dt><dd>{inline(it['growth'])}</dd></div>
-        <div><dt>估值</dt><dd>{inline(it['valuation'])}</dd></div>
-        {f"<div><dt>人均创收</dt><dd>{inline(it['per_head'])}</dd></div>" if it['per_head'] else ""}
-        {f"<div class='wide'><dt>北极星指标</dt><dd>{inline(it['north_star'])}</dd></div>" if it['north_star'] else ""}
-      </dl>
-      {it['html']}</div>
+      <div class="report" id="r{n}" hidden>{it['html']}</div>
     </article>""")
 
     p = PALETTE
@@ -657,14 +605,6 @@ figure.diagram {{ margin:20px 0 24px; padding:16px 0 0; border-top:1px solid var
 figure.diagram figcaption {{
   margin-top:10px; font-size:12px; color:var(--muted); line-height:1.6;
 }}
-.facts {{
-  display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
-  gap:2px; margin:0 0 8px; padding:0; background:transparent;
-}}
-.facts > div {{ padding:8px 0; border-top:1px solid var(--grid); }}
-.facts .wide {{ grid-column:1/-1; }}
-.facts dt {{ font-size:11px; color:var(--muted); letter-spacing:.03em; }}
-.facts dd {{ margin:2px 0 0; font-size:13px; color:var(--secondary); }}
 .report {{ padding:14px 18px 24px; border-top:1px solid var(--grid); }}
 .report h2 {{ font-size:18px; margin:26px 0 8px; }}
 .report h3 {{ font-size:15px; margin:20px 0 6px; }}
