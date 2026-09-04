@@ -596,8 +596,9 @@ def build(items):
 <script>
 (function () {{
   try {{
-    var v = localStorage.getItem("theme");
-    if (v) document.documentElement.setAttribute("data-theme", v);
+    if (localStorage.getItem("theme") === "dark") {{
+      document.documentElement.setAttribute("data-theme", "dark");
+    }}
   }} catch (e) {{}}
 }})();
 </script>
@@ -607,14 +608,6 @@ def build(items):
   --surface:{p['surface']}; --plane:{p['plane']}; --primary:{p['primary']};
   --secondary:{p['secondary']}; --muted:{p['muted']}; --grid:{p['grid']};
   --rule:{p['rule']}; --accent:{p['accent']}; --border:{p['border']};
-}}
-@media (prefers-color-scheme: dark) {{
-  :root:where(:not([data-theme="light"])) {{
-    color-scheme: dark;
-    --surface:{p['d_surface']}; --plane:{p['d_plane']}; --primary:{p['d_primary']};
-    --secondary:{p['d_secondary']}; --muted:{p['d_muted']}; --grid:{p['d_grid']};
-    --rule:{p['d_rule']}; --accent:{p['d_accent']}; --border:{p['d_border']};
-  }}
 }}
 :root[data-theme="dark"] {{
   color-scheme: dark;
@@ -697,7 +690,7 @@ footer {{ margin-top:36px; color:var(--muted); font-size:12px; }}
   font:12px system-ui,sans-serif; cursor:pointer;
 }}
 </style></head><body>
-<button class="toggle" id="t" title="点击切换：跟随系统 / 暗色 / 亮色">跟随系统</button>
+<button class="toggle" id="t" title="切换亮色 / 暗色">亮色</button>
 <div class="wrap">
 <header>
   <h1>AI 创业公司研究看板</h1>
@@ -728,23 +721,17 @@ document.querySelectorAll('.card-head').forEach(function (b) {{
   }});
 }});
 var btn = document.getElementById('t');
-var order = [null, 'dark', 'light'];
 function paint(v) {{
-  if (v) {{
-    document.documentElement.setAttribute('data-theme', v);
-  }} else {{
-    document.documentElement.removeAttribute('data-theme');
-  }}
-  btn.textContent = v === 'dark' ? '暗色' : v === 'light' ? '亮色' : '跟随系统';
+  document.documentElement.setAttribute('data-theme', v);
+  btn.textContent = v === 'dark' ? '暗色' : '亮色';
 }}
-try {{ paint(localStorage.getItem('theme')); }} catch (e) {{ paint(null); }}
+var saved = null;
+try {{ saved = localStorage.getItem('theme'); }} catch (e) {{}}
+paint(saved === 'dark' ? 'dark' : 'light');
 btn.addEventListener('click', function () {{
-  var cur = document.documentElement.getAttribute('data-theme') || null;
-  var next = order[(order.indexOf(cur) + 1) % order.length];
+  var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   paint(next);
-  try {{
-    if (next) {{ localStorage.setItem('theme', next); }} else {{ localStorage.removeItem('theme'); }}
-  }} catch (e) {{}}
+  try {{ localStorage.setItem('theme', next); }} catch (e) {{}}
 }});
 </script>
 </body></html>
