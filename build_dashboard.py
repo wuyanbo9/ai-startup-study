@@ -6,15 +6,46 @@ frontmatter plus a few rows the SKILL.md template guarantees, and writes a
 single self-contained dashboard file.
 """
 
+import base64
 import html
 import json
 import math
 import re
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent
 REPORTS = ROOT / "reports"
+LOGOS = ROOT / "logos"
+
+
+def logo_data_uri(slug, domain):
+    """Favicon for the company, cached in logos/ and inlined as a data URI.
+
+    Fetched once per company so the page stays self-contained and does not
+    call a third-party icon service on every visit. A miss is not fatal — the
+    card just shows no mark.
+    """
+    if not domain:
+        return ""
+    LOGOS.mkdir(exist_ok=True)
+    cached = LOGOS / f"{slug}.png"
+    if not cached.exists():
+        url = f"https://www.google.com/s2/favicons?domain={domain}&sz=128"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                data = r.read()
+            if len(data) < 100:
+                raise ValueError("suspiciously small icon")
+            cached.write_bytes(data)
+            print(f"  fetched logo for {slug} ({domain})")
+        except Exception as e:
+            print(f"  !! no logo for {slug} ({domain}): {e}")
+            return ""
+    b64 = base64.b64encode(cached.read_bytes()).decode()
+    return f"data:image/png;base64,{b64}"
 
 # Palette values come from the dataviz skill's reference instance.
 PALETTE = {
@@ -501,7 +532,10 @@ def load_reports():
         meta, body = parse_frontmatter(path.read_text(encoding="utf-8"))
         if not meta.get("company"):
             continue
+        model = parse_model(body) or {}
         items.append({
+            "logo": logo_data_uri(re.sub(r"^\d{4}-\d{2}-\d{2}-", "", path.stem),
+                                  model.get("domain", "")),
             "company": meta.get("company", path.stem),
             "sector": meta.get("sector", "未分类"),
             "date": meta.get("date", path.stem[:10]),
@@ -527,6 +561,7 @@ def build(items):
     <article class="card">
       <button class="card-head" aria-expanded="false" data-target="r{n}">
         <span class="card-title">
+          {f'<img class="logo" src="{it["logo"]}" alt="" width="22" height="22">' if it["logo"] else ""}
           <span class="name">{html.escape(it['company'])}</span>
           <span class="sector">{html.escape(it['sector'])}</span>
         </span>
@@ -593,7 +628,11 @@ header h1 {{ font-size:26px; margin:0; letter-spacing:-.01em; }}
   text-align:left; color:inherit; font:inherit;
 }}
 .card-head:hover {{ background:color-mix(in srgb, var(--accent) 6%, transparent); }}
-.card-title {{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }}
+.card-title {{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }}
+.logo {{
+  width:22px; height:22px; border-radius:5px; object-fit:contain; flex:none;
+  background:var(--surface); box-shadow:0 0 0 1px var(--border);
+}}
 .name {{ font-size:18px; font-weight:600; }}
 .name::after {{ content:"▸"; color:var(--muted); font-size:12px; margin-left:8px; }}
 .card-head[aria-expanded="true"] .name::after {{ content:"▾"; }}
