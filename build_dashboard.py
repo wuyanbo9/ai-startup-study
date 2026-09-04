@@ -533,7 +533,20 @@ def load_reports():
         if not meta.get("company"):
             continue
         model = parse_model(body) or {}
+        tl = model.get("timeline") or []
+        arr = float(tl[-1]["v"]) if tl else 0.0
+        cagr = 0.0
+        if len(tl) >= 2:
+            span = _months(tl[-1]["d"]) - _months(tl[0]["d"])
+            if span > 0 and float(tl[0]["v"]) > 0:
+                cagr = (arr / float(tl[0]["v"])) ** (12 / span)
+        fo = str(model.get("founded", ""))
+        fm = re.match(r"(\d{4})(?:-(\d{2}))?", fo)
+        founded = int(fm.group(1)) * 12 + int(fm.group(2) or 6) if fm else 0
         items.append({
+            "arr": arr,
+            "cagr": cagr,
+            "founded": founded,
             "logo": logo_data_uri(re.sub(r"^\d{4}-\d{2}-\d{2}-", "", path.stem),
                                   model.get("domain", "")),
             "company": meta.get("company", path.stem),
@@ -559,7 +572,7 @@ def build(items):
     cards = []
     for n, it in enumerate(items):
         cards.append(f"""
-    <article class="card" data-sector="{esc(it["skey"])}">
+    <article class="card" data-sector="{esc(it["skey"])}" data-date="{esc(it["date"])}" data-arr="{it["arr"]:.4f}" data-cagr="{it["cagr"]:.4f}" data-founded="{it["founded"]}">
       <button class="card-head" aria-expanded="false" data-target="r{n}">
         <span class="card-title">
           {f'<img class="logo" src="{it["logo"]}" alt="" width="22" height="22">' if it["logo"] else ""}
@@ -616,6 +629,14 @@ header h1 {{ font-size:26px; margin:0; letter-spacing:-.01em; }}
 .tile .v {{ font-size:28px; font-weight:600; margin-top:2px; }}
 .filters {{ margin:22px 0 26px; }}
 .chips {{ display:flex; flex-wrap:wrap; gap:8px; }}
+.sortbox {{
+  display:inline-flex; align-items:center; gap:8px; margin-top:14px;
+  font-size:12px; color:var(--muted);
+}}
+.sortbox select {{
+  font:inherit; font-size:12.5px; color:var(--secondary); background:var(--surface);
+  border:1px solid var(--border); border-radius:8px; padding:6px 8px; cursor:pointer;
+}}
 .ctrl {{
   display:flex; align-items:center; gap:14px; margin-top:14px;
   padding-top:12px; border-top:1px solid var(--grid);
@@ -711,13 +732,23 @@ footer {{ margin-top:36px; color:var(--muted); font-size:12px; }}
          f'<span class="n">{len(c)}</span></button>'
          for s, c in sorted(sectors.items(), key=lambda kv: (-len(kv[1]), kv[0])))}
 </div>
+<label class="sortbox">排序
+  <select id="sort">
+    <option value="date">报告时间（最新在前）</option>
+    <option value="cagr">增速（年化，最快在前）</option>
+    <option value="arr">规模（ARR，最大在前）</option>
+    <option value="founded">创立时间（最年轻在前）</option>
+  </select>
+</label>
 <div class="ctrl" id="ctrl" hidden>
   <span class="count" id="cnt"></span>
   <button type="button" class="clear" id="clr">✕ 清空选择</button>
 </div>
 </div>
 
+<div id="list">
 {"".join(cards)}
+</div>
 
 <footer>
   生成于 {updated}。数据口径不统一（GMV 与 ARR 混杂、部分为估算），因此刻意不做跨公司柱状图对比 —— 每家的口径以卡片内报告为准。
@@ -746,12 +777,38 @@ function applyFilter() {{
     c.hidden = !hit;
     if (hit) shown++;
   }});
-  chips.forEach(function (ch) {{
+  var list = document.getElementById('list');
+var sortSel = document.getElementById('sort');
+function num(c, k) {{ return parseFloat(c.dataset[k]) || 0; }}
+function applySort() {{
+  var k = sortSel.value;
+  var arr = cards.slice().sort(function (a, b) {{
+    if (k === 'date') return a.dataset.date < b.dataset.date ? 1 : a.dataset.date > b.dataset.date ? -1 : 0;
+    return num(b, k) - num(a, k);
+  }});
+  arr.forEach(function (c) {{ list.appendChild(c); }});
+}}
+sortSel.addEventListener('change', applySort);
+
+chips.forEach(function (ch) {{
     ch.setAttribute('aria-pressed', picked.indexOf(ch.dataset.sector) !== -1 ? 'true' : 'false');
   }});
   document.getElementById('ctrl').hidden = !on;
   cnt.textContent = '显示 ' + shown + ' / ' + cards.length + ' 家';
 }}
+
+var list = document.getElementById('list');
+var sortSel = document.getElementById('sort');
+function num(c, k) {{ return parseFloat(c.dataset[k]) || 0; }}
+function applySort() {{
+  var k = sortSel.value;
+  var arr = cards.slice().sort(function (a, b) {{
+    if (k === 'date') return a.dataset.date < b.dataset.date ? 1 : a.dataset.date > b.dataset.date ? -1 : 0;
+    return num(b, k) - num(a, k);
+  }});
+  arr.forEach(function (c) {{ list.appendChild(c); }});
+}}
+sortSel.addEventListener('change', applySort);
 
 chips.forEach(function (ch) {{
   ch.addEventListener('click', function () {{

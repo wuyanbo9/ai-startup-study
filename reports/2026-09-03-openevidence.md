@@ -59,6 +59,7 @@ valuation: $12B（2026/01 Series D 完成）[媒体]；2026/07 曾议价 $20B �
 ```model
 {
   "domain": "openevidence.com",
+  "founded": "2021-09",
   "who": {
     "label": "美国执业临床医生",
     "sub": "86 万人，占美国医生 40%+"
