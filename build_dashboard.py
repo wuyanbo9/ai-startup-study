@@ -614,19 +614,35 @@ header h1 {{ font-size:26px; margin:0; letter-spacing:-.01em; }}
 }}
 .tile .k {{ font-size:12px; color:var(--muted); letter-spacing:.02em; }}
 .tile .v {{ font-size:28px; font-weight:600; margin-top:2px; }}
-.sectors {{ display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 28px; }}
+.filters {{ margin:22px 0 26px; }}
+.chips {{ display:flex; flex-wrap:wrap; gap:8px; }}
+.ctrl {{
+  display:flex; align-items:center; gap:14px; margin-top:14px;
+  padding-top:12px; border-top:1px solid var(--grid);
+}}
+/* an explicit display would otherwise beat the UA rule for [hidden] */
+.ctrl[hidden] {{ display:none; }}
 .chip {{
-  font:inherit; font-size:12px; color:var(--secondary); background:var(--surface);
-  border:1px solid var(--border); border-radius:999px; padding:5px 12px; cursor:pointer;
+  display:inline-flex; align-items:center; gap:7px;
+  font:inherit; font-size:12.5px; line-height:1; color:var(--secondary);
+  background:var(--surface); border:1px solid var(--border); border-radius:999px;
+  padding:7px 8px 7px 13px; cursor:pointer;
 }}
 .chip:hover {{ border-color:var(--rule); }}
-.chip .n {{ color:var(--muted); font-variant-numeric:tabular-nums; }}
-.chip[aria-pressed="true"] {{
-  background:var(--accent); border-color:var(--accent); color:#fff;
+.chip .n {{
+  min-width:18px; padding:2px 0; border-radius:999px; text-align:center;
+  font-size:11px; font-variant-numeric:tabular-nums;
+  color:var(--muted); background:color-mix(in srgb, var(--primary) 7%, transparent);
 }}
-.chip[aria-pressed="true"] .n {{ color:rgba(255,255,255,.75); }}
-.chip.clear {{ color:var(--muted); }}
-.count {{ font-size:12px; color:var(--muted); align-self:center; }}
+.chip[aria-pressed="true"] {{ background:var(--accent); border-color:var(--accent); color:#fff; }}
+.chip[aria-pressed="true"] .n {{ color:#fff; background:rgba(255,255,255,.22); }}
+.count {{ font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }}
+.clear {{
+  font:inherit; font-size:12px; color:var(--secondary); background:none;
+  border:0; padding:0; cursor:pointer; text-decoration:underline;
+  text-underline-offset:3px; text-decoration-color:var(--rule);
+}}
+.clear:hover {{ color:var(--primary); text-decoration-color:var(--muted); }}
 .card {{
   background:var(--surface); border:1px solid var(--border); border-radius:12px;
   margin-bottom:14px; overflow:hidden;
@@ -688,11 +704,17 @@ footer {{ margin-top:36px; color:var(--muted); font-size:12px; }}
 {"".join(f'<div class="tile"><div class="k">{k}</div><div class="v">{v}</div></div>' for k, v in tiles)}
 </div>
 
-<div class="sectors">
+<div class="filters">
+<div class="chips">
 {"".join(f'<button type="button" class="chip" data-sector="{esc(s)}" aria-pressed="false">'
-         f'{html.escape(s)} <span class="n">{len(c)}</span></button>' for s, c in sectors.items())}
-<button type="button" class="chip clear" id="clr" hidden>清空选择</button>
-<span class="count" id="cnt" hidden></span>
+         f'<span class="lab">{html.escape(s.split(" / ")[0])}</span>'
+         f'<span class="n">{len(c)}</span></button>'
+         for s, c in sorted(sectors.items(), key=lambda kv: (-len(kv[1]), kv[0])))}
+</div>
+<div class="ctrl" id="ctrl" hidden>
+  <span class="count" id="cnt"></span>
+  <button type="button" class="clear" id="clr">✕ 清空选择</button>
+</div>
 </div>
 
 {"".join(cards)}
@@ -727,8 +749,7 @@ function applyFilter() {{
   chips.forEach(function (ch) {{
     ch.setAttribute('aria-pressed', picked.indexOf(ch.dataset.sector) !== -1 ? 'true' : 'false');
   }});
-  clr.hidden = !on;
-  cnt.hidden = !on;
+  document.getElementById('ctrl').hidden = !on;
   cnt.textContent = '显示 ' + shown + ' / ' + cards.length + ' 家';
 }}
 

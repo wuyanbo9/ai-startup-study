@@ -39,19 +39,35 @@ header h1 { font-size:26px; margin:0; letter-spacing:-.01em; }
 }
 .tile .k { font-size:12px; color:var(--muted); letter-spacing:.02em; }
 .tile .v { font-size:28px; font-weight:600; margin-top:2px; }
-.sectors { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 28px; }
+.filters { margin:22px 0 26px; }
+.chips { display:flex; flex-wrap:wrap; gap:8px; }
+.ctrl {
+  display:flex; align-items:center; gap:14px; margin-top:14px;
+  padding-top:12px; border-top:1px solid var(--grid);
+}
+/* an explicit display would otherwise beat the UA rule for [hidden] */
+.ctrl[hidden] { display:none; }
 .chip {
-  font:inherit; font-size:12px; color:var(--secondary); background:var(--surface);
-  border:1px solid var(--border); border-radius:999px; padding:5px 12px; cursor:pointer;
+  display:inline-flex; align-items:center; gap:7px;
+  font:inherit; font-size:12.5px; line-height:1; color:var(--secondary);
+  background:var(--surface); border:1px solid var(--border); border-radius:999px;
+  padding:7px 8px 7px 13px; cursor:pointer;
 }
 .chip:hover { border-color:var(--rule); }
-.chip .n { color:var(--muted); font-variant-numeric:tabular-nums; }
-.chip[aria-pressed="true"] {
-  background:var(--accent); border-color:var(--accent); color:#fff;
+.chip .n {
+  min-width:18px; padding:2px 0; border-radius:999px; text-align:center;
+  font-size:11px; font-variant-numeric:tabular-nums;
+  color:var(--muted); background:color-mix(in srgb, var(--primary) 7%, transparent);
 }
-.chip[aria-pressed="true"] .n { color:rgba(255,255,255,.75); }
-.chip.clear { color:var(--muted); }
-.count { font-size:12px; color:var(--muted); align-self:center; }
+.chip[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:#fff; }
+.chip[aria-pressed="true"] .n { color:#fff; background:rgba(255,255,255,.22); }
+.count { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+.clear {
+  font:inherit; font-size:12px; color:var(--secondary); background:none;
+  border:0; padding:0; cursor:pointer; text-decoration:underline;
+  text-underline-offset:3px; text-decoration-color:var(--rule);
+}
+.clear:hover { color:var(--primary); text-decoration-color:var(--muted); }
 .card {
   background:var(--surface); border:1px solid var(--border); border-radius:12px;
   margin-bottom:14px; overflow:hidden;
@@ -113,10 +129,14 @@ footer { margin-top:36px; color:var(--muted); font-size:12px; }
 <div class="tile"><div class="k">已分析公司</div><div class="v">9</div></div><div class="tile"><div class="k">覆盖赛道</div><div class="v">8</div></div><div class="tile"><div class="k">最近更新</div><div class="v">2026-09-03</div></div>
 </div>
 
-<div class="sectors">
-<button type="button" class="chip" data-sector="语音 AI / Voice Agent 基建" aria-pressed="false">语音 AI / Voice Agent 基建 <span class="n">1</span></button><button type="button" class="chip" data-sector="医疗 AI" aria-pressed="false">医疗 AI <span class="n">1</span></button><button type="button" class="chip" data-sector="AI 编程" aria-pressed="false">AI 编程 <span class="n">1</span></button><button type="button" class="chip" data-sector="客服 / CX" aria-pressed="false">客服 / CX <span class="n">1</span></button><button type="button" class="chip" data-sector="3D 内容生成" aria-pressed="false">3D 内容生成 <span class="n">1</span></button><button type="button" class="chip" data-sector="法律 AI" aria-pressed="false">法律 AI <span class="n">2</span></button><button type="button" class="chip" data-sector="销售 / AI GTM" aria-pressed="false">销售 / AI GTM <span class="n">1</span></button><button type="button" class="chip" data-sector="AI 训练数据 / 专家劳动力市场" aria-pressed="false">AI 训练数据 / 专家劳动力市场 <span class="n">1</span></button>
-<button type="button" class="chip clear" id="clr" hidden>清空选择</button>
-<span class="count" id="cnt" hidden></span>
+<div class="filters">
+<div class="chips">
+<button type="button" class="chip" data-sector="法律 AI" aria-pressed="false"><span class="lab">法律 AI</span><span class="n">2</span></button><button type="button" class="chip" data-sector="3D 内容生成" aria-pressed="false"><span class="lab">3D 内容生成</span><span class="n">1</span></button><button type="button" class="chip" data-sector="AI 编程" aria-pressed="false"><span class="lab">AI 编程</span><span class="n">1</span></button><button type="button" class="chip" data-sector="AI 训练数据 / 专家劳动力市场" aria-pressed="false"><span class="lab">AI 训练数据</span><span class="n">1</span></button><button type="button" class="chip" data-sector="医疗 AI" aria-pressed="false"><span class="lab">医疗 AI</span><span class="n">1</span></button><button type="button" class="chip" data-sector="客服 / CX" aria-pressed="false"><span class="lab">客服</span><span class="n">1</span></button><button type="button" class="chip" data-sector="语音 AI / Voice Agent 基建" aria-pressed="false"><span class="lab">语音 AI</span><span class="n">1</span></button><button type="button" class="chip" data-sector="销售 / AI GTM" aria-pressed="false"><span class="lab">销售</span><span class="n">1</span></button>
+</div>
+<div class="ctrl" id="ctrl" hidden>
+  <span class="count" id="cnt"></span>
+  <button type="button" class="clear" id="clr">✕ 清空选择</button>
+</div>
 </div>
 
 
@@ -977,7 +997,7 @@ footer { margin-top:36px; color:var(--muted); font-size:12px; }
     </article>
 
 <footer>
-  生成于 2026-09-04 00:44。数据口径不统一（GMV 与 ARR 混杂、部分为估算），因此刻意不做跨公司柱状图对比 —— 每家的口径以卡片内报告为准。
+  生成于 2026-09-04 00:49。数据口径不统一（GMV 与 ARR 混杂、部分为估算），因此刻意不做跨公司柱状图对比 —— 每家的口径以卡片内报告为准。
 </footer>
 </div>
 <script>
@@ -1006,8 +1026,7 @@ function applyFilter() {
   chips.forEach(function (ch) {
     ch.setAttribute('aria-pressed', picked.indexOf(ch.dataset.sector) !== -1 ? 'true' : 'false');
   });
-  clr.hidden = !on;
-  cnt.hidden = !on;
+  document.getElementById('ctrl').hidden = !on;
   cnt.textContent = '显示 ' + shown + ' / ' + cards.length + ' 家';
 }
 
