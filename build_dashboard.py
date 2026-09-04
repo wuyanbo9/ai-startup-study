@@ -577,6 +577,7 @@ def build(items):
         <span class="date">{html.escape(it['date'])}</span>
       </button>
       {f'<div class="flow-wrap">{it["timeline"]}</div>' if it["timeline"] else ""}
+      <div class="report" id="r{n}" hidden>
       <dl class="facts">
         <div><dt>ARR</dt><dd>{inline(it['arr'])}</dd></div>
         <div><dt>增长倍数</dt><dd>{inline(it['growth'])}</dd></div>
@@ -584,7 +585,7 @@ def build(items):
         {f"<div><dt>人均创收</dt><dd>{inline(it['per_head'])}</dd></div>" if it['per_head'] else ""}
         {f"<div class='wide'><dt>北极星指标</dt><dd>{inline(it['north_star'])}</dd></div>" if it['north_star'] else ""}
       </dl>
-      <div class="report" id="r{n}" hidden>{it['html']}</div>
+      {it['html']}</div>
     </article>""")
 
     p = PALETTE
@@ -658,13 +659,13 @@ figure.diagram figcaption {{
 }}
 .facts {{
   display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
-  gap:2px; margin:0; padding:0 18px 16px; background:transparent;
+  gap:2px; margin:0 0 8px; padding:0; background:transparent;
 }}
 .facts > div {{ padding:8px 0; border-top:1px solid var(--grid); }}
 .facts .wide {{ grid-column:1/-1; }}
 .facts dt {{ font-size:11px; color:var(--muted); letter-spacing:.03em; }}
 .facts dd {{ margin:2px 0 0; font-size:13px; color:var(--secondary); }}
-.report {{ padding:4px 18px 24px; border-top:1px solid var(--grid); }}
+.report {{ padding:14px 18px 24px; border-top:1px solid var(--grid); }}
 .report h2 {{ font-size:18px; margin:26px 0 8px; }}
 .report h3 {{ font-size:15px; margin:20px 0 6px; }}
 .report p {{ margin:8px 0; }}
