@@ -342,34 +342,42 @@ def render_timeline_svg(m):
     xs = [_months(p["d"]) for p in pts]
     vs = [float(p["v"]) for p in pts]
     x0, x1 = min(xs), max(xs)
-    lo, hi = math.log10(min(vs)), math.log10(max(vs))
-    lo, hi = math.floor(lo), math.ceil(hi)
-    if hi - lo < 1:
-        hi = lo + 1
+
+    raw = max(vs) / 4
+    mag = 10 ** math.floor(math.log10(raw))
+    step = next(s * mag for s in (1, 2, 2.5, 5, 10) if s * mag >= raw)
+    ymax = math.ceil(max(vs) / step) * step
+    if max(vs) > ymax * 0.93:          # headroom so the top label has room
+        ymax += step
 
     def px(v):
         return L + (v - x0) / max(x1 - x0, 1) * (W - L - R)
 
     def py(v):
-        return H - B - (math.log10(v) - lo) / (hi - lo) * (H - T - B)
+        return H - B - v / ymax * (H - T - B)
+
+    def money(v):
+        if v == 0:
+            return "0"
+        return f"${v:g}M" if v < 1000 else f"${v / 1000:g}B"
 
     out = []
-    for e in range(lo, hi + 1):
-        val = 10 ** e
+    n = int(round(ymax / step))
+    for i in range(n + 1):
+        val = step * i
         yy = py(val)
         out.append(f'<line x1="{L}" y1="{yy:.1f}" x2="{W - R}" y2="{yy:.1f}" '
                    f'stroke="var(--grid)" stroke-width="1"/>')
-        lab = f"${val:g}M" if val < 1000 else f"${val / 1000:g}B"
         out.append(f'<text x="{L - 8}" y="{yy + 4:.1f}" text-anchor="end" font-size="10" '
-                   f'fill="var(--muted)">{esc(lab)}</text>')
+                   f'fill="var(--muted)">{esc(money(val))}</text>')
 
     bench = []
     for mo in range(0, x1 - x0 + 1, 2):
         bv = vs[0] * (3 ** (mo / 12))
-        if math.log10(bv) > hi:
+        if bv > ymax:
             break
         bench.append(f"{px(x0 + mo):.1f},{py(bv):.1f}")
-    if len(bench) > 1:
+    if len(bench) > 1 and vs[0] * (3 ** ((x1 - x0) / 12)) > ymax * 0.08:
         out.append(f'<polyline points="{" ".join(bench)}" fill="none" stroke="var(--muted)" '
                    f'stroke-width="1.5" stroke-dasharray="5 4"/>')
         bx, by = bench[-1].split(",")
@@ -426,7 +434,7 @@ def render_timeline_svg(m):
             f'<text x="{W}" y="15" text-anchor="end" font-size="15" font-weight="600" '
             f'fill="var(--primary)">{span} 个月 · ×{mtxt}</text>'
             f'<text x="{W}" y="{H - 6}" text-anchor="end" font-size="10" fill="var(--muted)">'
-            f'纵轴对数刻度 · 斜率＝增长率；灰虚线为「每年 3 倍」的顶级 SaaS 参照</text>'
+            f'纵轴为实际数值；灰虚线为「每年 3 倍」的顶级 SaaS 参照（低于可见范围时不显示）</text>'
             + "".join(out) + "</svg>")
 
 

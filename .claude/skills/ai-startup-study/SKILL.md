@@ -88,7 +88,7 @@ description: 每次深度分析一家 AI 创业公司，帮助用户持续学习
 python3 build_dashboard.py
 ```
 
-它从 `reports/` 的全部报告重建仓库根目录的 `index.html`。每家公司在列表里是一张增长时间线（对数纵轴、突变点带标注），展开后正文里是一张商业模式图，两者都来自 `model` 数据块。**不要手改 `index.html`** —— 它是生成物，改了下次就被覆盖。要改样式或抽取逻辑就改 `build_dashboard.py`。
+它从 `reports/` 的全部报告重建仓库根目录的 `index.html`。每家公司在列表里是一张增长时间线（纵轴为实际数值、突变点带标注），展开后正文里是一张商业模式图，两者都来自 `model` 数据块。**不要手改 `index.html`** —— 它是生成物，改了下次就被覆盖。要改样式或抽取逻辑就改 `build_dashboard.py`。
 
 生成器依赖报告遵循下面的模板：frontmatter 的 `company` / `sector` / `date` / `arr` / `valuation` 字段、增长快照表里的「增长倍数」和「人均创收」两行、以及 `## 3. 北极星指标` 这一节。模板变了就要同步改生成器。
 
