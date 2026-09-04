@@ -8,6 +8,7 @@ single self-contained dashboard file.
 
 import html
 import json
+import math
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -325,6 +326,88 @@ def render_value_svg(m):
             + "".join(parts) + "</svg>")
 
 
+def _months(d):
+    y, mo = d.split("-")
+    return int(y) * 12 + int(mo)
+
+
+def render_timeline_svg(m):
+    """Scale over time on a log axis, so the slope *is* the growth rate and an
+    inflection reads as a kink rather than as a change of altitude."""
+    pts = m.get("timeline") or []
+    if len(pts) < 2:
+        return ""
+    W, H = 900, 252
+    L, R, T, B = 52, 16, 30, 62
+    xs = [_months(p["d"]) for p in pts]
+    vs = [float(p["v"]) for p in pts]
+    x0, x1 = min(xs), max(xs)
+    lo, hi = math.log10(min(vs)), math.log10(max(vs))
+    lo, hi = math.floor(lo), math.ceil(hi)
+    if hi - lo < 1:
+        hi = lo + 1
+
+    def px(v):
+        return L + (v - x0) / max(x1 - x0, 1) * (W - L - R)
+
+    def py(v):
+        return H - B - (math.log10(v) - lo) / (hi - lo) * (H - T - B)
+
+    out = []
+    for e in range(lo, hi + 1):
+        val = 10 ** e
+        yy = py(val)
+        out.append(f'<line x1="{L}" y1="{yy:.1f}" x2="{W - R}" y2="{yy:.1f}" '
+                   f'stroke="var(--grid)" stroke-width="1"/>')
+        lab = f"${val:g}M" if val < 1000 else f"${val / 1000:g}B"
+        out.append(f'<text x="{L - 8}" y="{yy + 4:.1f}" text-anchor="end" font-size="10" '
+                   f'fill="var(--muted)">{esc(lab)}</text>')
+
+    poly = " ".join(f"{px(x):.1f},{py(v):.1f}" for x, v in zip(xs, vs))
+    out.append(f'<polyline points="{poly}" fill="none" stroke="var(--accent)" '
+               f'stroke-width="2" stroke-linejoin="round"/>')
+
+    for p, x, v in zip(pts, xs, vs):
+        cx, cy = px(x), py(v)
+        big = bool(p.get("mark"))
+        out.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{5.5 if big else 4}" '
+                   f'fill="var(--accent)" stroke="var(--surface)" stroke-width="2">'
+                   f'<title>{esc(p["d"])} · {esc(p.get("label", ""))}'
+                   f'{" · " + esc(p["mark"]) if big else ""}</title></circle>')
+        if big:
+            anchor = "end" if cx > W * 0.62 else "start"
+            tx = cx - 10 if anchor == "end" else cx + 10
+            room = (cx - L - 12) if anchor == "end" else (W - R - cx - 12)
+            below = cy < (T + H - B) / 2
+            lines = wrap_px(p["mark"], max(room, 160), 11, 2)
+            y1, y2 = (cy + 8, cy + 20) if below else (cy - 8, cy - 20)
+            out.append(f'<line x1="{cx:.1f}" y1="{y1:.1f}" x2="{cx:.1f}" y2="{y2:.1f}" '
+                       f'stroke="var(--rule)" stroke-width="1"/>')
+            for i, line in enumerate(lines):
+                ty = (cy + 34 + i * 13) if below else (cy - 24 - (len(lines) - 1 - i) * 13)
+                out.append(f'<text x="{tx:.1f}" y="{ty:.1f}" '
+                           f'text-anchor="{anchor}" font-size="11" font-weight="600" '
+                           f'fill="var(--secondary)">{esc(line)}</text>')
+
+    for p, x in ((pts[0], xs[0]), (pts[-1], xs[-1])):
+        anchor = "start" if x == xs[0] else "end"
+        out.append(f'<text x="{px(x):.1f}" y="{H - B + 18}" text-anchor="{anchor}" '
+                   f'font-size="10" fill="var(--muted)">{esc(p["d"])}</text>')
+        vy = py(float(p["v"]))
+        vy = vy - 12 if vy > H - B - 30 else vy + 18
+        out.append(f'<text x="{px(x):.1f}" y="{vy:.1f}" '
+                   f'text-anchor="{anchor}" font-size="11" font-weight="600" '
+                   f'fill="var(--primary)">{esc(p.get("label", ""))}</text>')
+
+    note = m.get("unit", "年化收入")
+    return (f'<svg class="tl" viewBox="0 0 {W} {H}" role="img" aria-label="规模随时间的变化">'
+            f'<text x="0" y="13" font-size="12" font-weight="600" fill="var(--secondary)">'
+            f'{esc(note)}</text>'
+            f'<text x="{W}" y="13" text-anchor="end" font-size="10" fill="var(--muted)">'
+            f'纵轴对数刻度 · 斜率＝增长率，折点＝增长率突变</text>'
+            + "".join(out) + "</svg>")
+
+
 def render_diagram(m):
     """`need` means the block describes the value logic; otherwise it is an
     older money-flow block, still rendered until it is rewritten."""
@@ -344,7 +427,7 @@ def inline(s):
     return s
 
 
-def render_markdown(md):
+def render_markdown(md, model=None):
     out, lines, i = [], md.splitlines(), 0
     while i < len(lines):
         line = lines[i]
@@ -357,10 +440,15 @@ def render_markdown(md):
         # Fenced blocks are data (the ```model payload), not prose — the
         # diagram renders them instead.
         if stripped.startswith("```"):
+            fence = stripped
             i += 1
             while i < len(lines) and not lines[i].strip().startswith("```"):
                 i += 1
             i += 1
+            if fence.startswith("```model") and model:
+                out.append(f'<figure class="diagram">{render_diagram(model)}'
+                           f'<figcaption>这家公司的商业模式：谁有什么需求，原来怎么被满足，'
+                           f'它凭什么更好，以及为什么有人肯为此付钱。</figcaption></figure>')
             continue
 
         if stripped.startswith("|"):
@@ -431,8 +519,8 @@ def load_reports():
             "growth": table_row(body, "增长倍数") or "见报告",
             "per_head": table_row(body, "人均创收"),
             "north_star": north_star(body),
-            "flow": render_diagram(parse_model(body)),
-            "html": render_markdown(body),
+            "timeline": render_timeline_svg(parse_model(body) or {}),
+            "html": render_markdown(body, parse_model(body)),
         })
     return items
 
@@ -458,7 +546,7 @@ def build(items):
         </span>
         <span class="date">{html.escape(it['date'])}</span>
       </button>
-      {f'<div class="flow-wrap">{it["flow"]}</div>' if it["flow"] else ""}
+      {f'<div class="flow-wrap">{it["timeline"]}</div>' if it["timeline"] else ""}
       <dl class="facts">
         <div><dt>ARR</dt><dd>{inline(it['arr'])}</dd></div>
         <div><dt>增长倍数</dt><dd>{inline(it['growth'])}</dd></div>
@@ -532,8 +620,12 @@ header p {{ margin:0; color:var(--secondary); font-size:14px; }}
 .card-head[aria-expanded="true"] .name::after {{ content:"▾"; }}
 .sector {{ font-size:12px; color:var(--secondary); }}
 .date {{ font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }}
-.flow-wrap {{ padding:2px 18px 6px; }}
-svg.flow {{ width:100%; height:auto; display:block; overflow:visible; }}
+.flow-wrap {{ padding:2px 18px 10px; }}
+svg.flow, svg.tl {{ width:100%; height:auto; display:block; overflow:visible; }}
+figure.diagram {{ margin:20px 0 24px; padding:16px 0 0; border-top:1px solid var(--grid); }}
+figure.diagram figcaption {{
+  margin-top:10px; font-size:12px; color:var(--muted); line-height:1.6;
+}}
 .facts {{
   display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
   gap:2px; margin:0; padding:0 18px 16px; background:transparent;
