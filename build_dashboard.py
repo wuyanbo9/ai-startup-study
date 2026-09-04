@@ -630,13 +630,11 @@ header h1 {{ font-size:26px; margin:0; letter-spacing:-.01em; }}
 .filters {{ margin:22px 0 26px; }}
 .chips {{ display:flex; flex-wrap:wrap; gap:8px; }}
 .sortbox {{
-  display:inline-flex; align-items:center; gap:8px; margin-top:14px;
-  font-size:12px; color:var(--muted);
-}}
-.sortbox select {{
+  display:block; margin-top:14px;
   font:inherit; font-size:12.5px; color:var(--secondary); background:var(--surface);
   border:1px solid var(--border); border-radius:8px; padding:6px 8px; cursor:pointer;
 }}
+.sortbox:hover {{ border-color:var(--rule); }}
 .ctrl {{
   display:flex; align-items:center; gap:14px; margin-top:14px;
   padding-top:12px; border-top:1px solid var(--grid);
@@ -732,14 +730,12 @@ footer {{ margin-top:36px; color:var(--muted); font-size:12px; }}
          f'<span class="n">{len(c)}</span></button>'
          for s, c in sorted(sectors.items(), key=lambda kv: (-len(kv[1]), kv[0])))}
 </div>
-<label class="sortbox">排序
-  <select id="sort">
-    <option value="date">报告时间（最新在前）</option>
-    <option value="cagr">增速（年化，最快在前）</option>
-    <option value="arr">规模（ARR，最大在前）</option>
-    <option value="founded">创立时间（最年轻在前）</option>
-  </select>
-</label>
+<select id="sort" class="sortbox" aria-label="排序方式">
+  <option value="date">报告时间（最新在前）</option>
+  <option value="cagr">增速（年化，最快在前）</option>
+  <option value="arr">规模（ARR，最大在前）</option>
+  <option value="founded">创立时间（最年轻在前）</option>
+</select>
 <div class="ctrl" id="ctrl" hidden>
   <span class="count" id="cnt"></span>
   <button type="button" class="clear" id="clr">✕ 清空选择</button>
