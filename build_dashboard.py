@@ -593,6 +593,14 @@ def build(items):
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI 创业公司研究看板</title>
+<script>
+(function () {{
+  try {{
+    var v = localStorage.getItem("theme");
+    if (v) document.documentElement.setAttribute("data-theme", v);
+  }} catch (e) {{}}
+}})();
+</script>
 <style>
 :root {{
   color-scheme: light;
@@ -689,7 +697,7 @@ footer {{ margin-top:36px; color:var(--muted); font-size:12px; }}
   font:12px system-ui,sans-serif; cursor:pointer;
 }}
 </style></head><body>
-<button class="toggle" id="t">明/暗</button>
+<button class="toggle" id="t" title="点击切换：跟随系统 / 暗色 / 亮色">跟随系统</button>
 <div class="wrap">
 <header>
   <h1>AI 创业公司研究看板</h1>
@@ -719,9 +727,24 @@ document.querySelectorAll('.card-head').forEach(function (b) {{
     panel.hidden = open;
   }});
 }});
-document.getElementById('t').addEventListener('click', function () {{
-  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+var btn = document.getElementById('t');
+var order = [null, 'dark', 'light'];
+function paint(v) {{
+  if (v) {{
+    document.documentElement.setAttribute('data-theme', v);
+  }} else {{
+    document.documentElement.removeAttribute('data-theme');
+  }}
+  btn.textContent = v === 'dark' ? '暗色' : v === 'light' ? '亮色' : '跟随系统';
+}}
+try {{ paint(localStorage.getItem('theme')); }} catch (e) {{ paint(null); }}
+btn.addEventListener('click', function () {{
+  var cur = document.documentElement.getAttribute('data-theme') || null;
+  var next = order[(order.indexOf(cur) + 1) % order.length];
+  paint(next);
+  try {{
+    if (next) {{ localStorage.setItem('theme', next); }} else {{ localStorage.removeItem('theme'); }}
+  }} catch (e) {{}}
 }});
 </script>
 </body></html>
