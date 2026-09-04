@@ -68,7 +68,8 @@ valuation: $12B（2026/01 Series D 完成）[媒体]；2026/07 曾议价 $20B �
     "label": "OpenEvidence",
     "sub": "临床决策支持"
   },
-  "outflow": "完全免费，NPI 号验证即用",
+  "outflow": "医生免费使用，NPI 号验证即可",
+  "outflow_kind": "free",
   "payee": {
     "label": "86 万美国临床医生",
     "sub": "40%+ 的美国执业医生"

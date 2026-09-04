@@ -130,12 +130,17 @@ def _node_height(label_lines, sub_lines):
     return 20 + 19 * len(label_lines) + 14 * len(sub_lines) + 10
 
 
-def _node(x, y, w, h, node):
+def _node(x, y, w, h, node, role="", subject=False):
     label_lines, subs = _node_lines(node, w)
     cx = x + w / 2
     top = y + (h - _node_height(label_lines, subs)) / 2
-    out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="10" '
-           f'fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>']
+    stroke = "var(--accent)" if subject else "var(--rule)"
+    out = []
+    if role:
+        out.append(f'<text x="{cx}" y="{y - 9}" text-anchor="middle" font-size="11" '
+                   f'font-weight="600" fill="var(--muted)">{esc(role)}</text>')
+    out.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="10" '
+               f'fill="var(--surface)" stroke="{stroke}" stroke-width="{2 if subject else 1}"/>')
     for i, line in enumerate(label_lines):
         out.append(f'<text x="{cx}" y="{top + 24 + i * 19}" text-anchor="middle" '
                    f'font-size="14" font-weight="600" fill="var(--primary)">{esc(line)}</text>')
@@ -146,11 +151,15 @@ def _node(x, y, w, h, node):
     return "".join(out)
 
 
-def _arrow(x1, x2, y, label):
+def _arrow(x1, x2, y, label, money=True):
+    """Solid accent = money moving. Dashed grey = something given away free."""
     mid = (x1 + x2) / 2
-    lines = wrap_px(label, x2 - x1 - 8, 11.5, 2) if label else []
-    out = [f'<line x1="{x1}" y1="{y}" x2="{x2 - 9}" y2="{y}" stroke="var(--accent)" '
-           f'stroke-width="2" marker-end="url(#ah)"/>']
+    tag = "付费" if money else "免费"
+    lines = wrap_px(f"{tag} · {label}" if label else tag, x2 - x1 - 8, 11.5, 2)
+    stroke = "var(--accent)" if money else "var(--muted)"
+    dash = "" if money else ' stroke-dasharray="6 4"'
+    out = [f'<line x1="{x1}" y1="{y}" x2="{x2 - 9}" y2="{y}" stroke="{stroke}" '
+           f'stroke-width="2"{dash} marker-end="url(#{"ah" if money else "ahg"})"/>']
     for i, line in enumerate(lines):
         dy = y - 12 - (len(lines) - 1 - i) * 14
         out.append(f'<text x="{mid}" y="{dy}" text-anchor="middle" font-size="11.5" '
@@ -162,31 +171,34 @@ def render_model_svg(m):
     """Money flows left to right: who pays -> the company -> where it goes."""
     if not m or not m.get("vendor"):
         return ""
-    W, TOP = 900, 46
+    W, TOP = 900, 62
     three = bool(m.get("payee"))
+    outflow_is_money = m.get("outflow_kind", "money") != "free"
     box_w = 180 if three else 240
     xs = [0, 360, 720] if three else [90, 570]
 
     nodes = [m["payer"], m["vendor"]] + ([m["payee"]] if three else [])
     BOX_H = max(_node_height(*_node_lines(n, box_w)) for n in nodes)
 
-    parts = [_node(xs[0], TOP, box_w, BOX_H, m["payer"]),
-             _node(xs[1], TOP, box_w, BOX_H, m["vendor"])]
+    parts = [_node(xs[0], TOP, box_w, BOX_H, m["payer"], "谁掏钱"),
+             _node(xs[1], TOP, box_w, BOX_H, m["vendor"], "这家公司", subject=True)]
     parts.append(_arrow(xs[0] + box_w, xs[1], TOP + BOX_H / 2, m.get("flow", "")))
     if three:
-        parts.append(_node(xs[2], TOP, box_w, BOX_H, m["payee"]))
-        parts.append(_arrow(xs[1] + box_w, xs[2], TOP + BOX_H / 2, m.get("outflow", "")))
+        role = "钱再流向谁" if outflow_is_money else "谁在用，但不掏钱"
+        parts.append(_node(xs[2], TOP, box_w, BOX_H, m["payee"], role))
+        parts.append(_arrow(xs[1] + box_w, xs[2], TOP + BOX_H / 2,
+                            m.get("outflow", ""), money=outflow_is_money))
 
     y = TOP + BOX_H
     if m.get("budget"):
         parts.append(f'<text x="{xs[0] + box_w / 2}" y="{y + 19}" text-anchor="middle" '
-                     f'font-size="11" fill="var(--muted)">预算来源 · {esc(m["budget"])}</text>')
+                     f'font-size="11" fill="var(--muted)">这笔钱出自 · {esc(m["budget"])}</text>')
         y += 22
 
     metrics = m.get("metrics", [])[:4]
     if metrics:
-        y += 26
-        parts.append(f'<line x1="0" y1="{y - 16}" x2="{W}" y2="{y - 16}" '
+        y += 30
+        parts.append(f'<line x1="0" y1="{y - 20}" x2="{W}" y2="{y - 20}" '
                      f'stroke="var(--grid)" stroke-width="1"/>')
         step = W / len(metrics)
         for i, met in enumerate(metrics):
@@ -197,12 +209,21 @@ def render_model_svg(m):
                          f'font-weight="600" fill="var(--primary)">{esc(met.get("v", ""))}</text>')
         y += 34
 
+    legend = "箭头方向就是钱的方向"
+    if three and not outflow_is_money:
+        legend = "蓝色实线＝钱的流向；灰色虚线＝免费提供，不收钱"
     return (f'<svg class="flow" viewBox="0 0 {W} {y + 8}" role="img" '
             f'aria-label="商业模式资金流向图">'
-            f'<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
-            f'markerHeight="6" orient="auto"><path d="M0,1 L9,5 L0,9 z" fill="var(--accent)"/>'
-            f'</marker></defs>'
-            f'<text x="0" y="16" font-size="11" fill="var(--muted)">资金流向</text>'
+            f'<defs>'
+            f'<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
+            f'markerHeight="6" orient="auto"><path d="M0,1 L9,5 L0,9 z" fill="var(--accent)"/></marker>'
+            f'<marker id="ahg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
+            f'markerHeight="6" orient="auto"><path d="M0,1 L9,5 L0,9 z" fill="var(--muted)"/></marker>'
+            f'</defs>'
+            f'<text x="0" y="15" font-size="12" font-weight="600" fill="var(--secondary)">'
+            f'钱从哪儿来，又流到哪儿去</text>'
+            f'<text x="{W}" y="15" text-anchor="end" font-size="11" fill="var(--muted)">'
+            f'{esc(legend)}</text>'
             + "".join(parts) + "</svg>")
 
 
