@@ -363,6 +363,20 @@ def render_timeline_svg(m):
         out.append(f'<text x="{L - 8}" y="{yy + 4:.1f}" text-anchor="end" font-size="10" '
                    f'fill="var(--muted)">{esc(lab)}</text>')
 
+    bench = []
+    for mo in range(0, x1 - x0 + 1, 2):
+        bv = vs[0] * (3 ** (mo / 12))
+        if math.log10(bv) > hi:
+            break
+        bench.append(f"{px(x0 + mo):.1f},{py(bv):.1f}")
+    if len(bench) > 1:
+        out.append(f'<polyline points="{" ".join(bench)}" fill="none" stroke="var(--muted)" '
+                   f'stroke-width="1.5" stroke-dasharray="5 4"/>')
+        bx, by = bench[-1].split(",")
+        out.append(f'<text x="{float(bx) - 6:.1f}" y="{float(by) + 21:.1f}" text-anchor="end" '
+                   f'font-size="10" paint-order="stroke" stroke="var(--surface)" '
+                   f'stroke-width="3" fill="var(--muted)">每年 3 倍</text>')
+
     poly = " ".join(f"{px(x):.1f},{py(v):.1f}" for x, v in zip(xs, vs))
     out.append(f'<polyline points="{poly}" fill="none" stroke="var(--accent)" '
                f'stroke-width="2" stroke-linejoin="round"/>')
@@ -403,11 +417,16 @@ def render_timeline_svg(m):
                    f'fill="var(--primary)">{esc(p.get("label", ""))}</text>')
 
     note = m.get("unit", "年化收入")
+    span = xs[-1] - xs[0]
+    mult = vs[-1] / vs[0]
+    mtxt = f"{mult:.0f}" if mult >= 10 else f"{mult:.1f}"
     return (f'<svg class="tl" viewBox="0 0 {W} {H}" role="img" aria-label="规模随时间的变化">'
             f'<text x="0" y="13" font-size="12" font-weight="600" fill="var(--secondary)">'
             f'{esc(note)}</text>'
-            f'<text x="{W}" y="13" text-anchor="end" font-size="10" fill="var(--muted)">'
-            f'纵轴对数刻度 · 斜率＝增长率，折点＝增长率突变</text>'
+            f'<text x="{W}" y="15" text-anchor="end" font-size="15" font-weight="600" '
+            f'fill="var(--primary)">{span} 个月 · ×{mtxt}</text>'
+            f'<text x="{W}" y="{H - 6}" text-anchor="end" font-size="10" fill="var(--muted)">'
+            f'纵轴对数刻度 · 斜率＝增长率；灰虚线为「每年 3 倍」的顶级 SaaS 参照</text>'
             + "".join(out) + "</svg>")
 
 
