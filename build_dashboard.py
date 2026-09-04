@@ -227,6 +227,112 @@ def render_model_svg(m):
             + "".join(parts) + "</svg>")
 
 
+def _box(x, y, w, title, detail, accent=False, title_size=15):
+    """A titled box that grows to fit its wrapped detail text."""
+    tl = wrap_px(title, w - 24, title_size, 2)
+    dl = wrap_px(detail, w - 24, 12, 3) if detail else []
+    h = 16 + 20 * len(tl) + 17 * len(dl) + 14
+    stroke = "var(--accent)" if accent else "var(--rule)"
+    ink = "var(--primary)" if accent else "var(--secondary)"
+    out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="10" fill="var(--surface)" '
+           f'stroke="{stroke}" stroke-width="{2 if accent else 1}"/>']
+    ty = y + 16 + title_size
+    for line in tl:
+        out.append(f'<text x="{x + 12}" y="{ty}" font-size="{title_size}" font-weight="600" '
+                   f'fill="{ink}">{esc(line)}</text>')
+        ty += 20
+    for line in dl:
+        out.append(f'<text x="{x + 12}" y="{ty + 2}" font-size="12" fill="var(--muted)">'
+                   f'{esc(line)}</text>')
+        ty += 17
+    return "".join(out), h
+
+
+def _caption(x, y, text):
+    return (f'<text x="{x}" y="{y}" font-size="11" font-weight="600" letter-spacing="0.04em" '
+            f'fill="var(--muted)">{esc(text)}</text>')
+
+
+def render_value_svg(m):
+    """需求 -> 解法 -> 为什么肯付钱. Money is a consequence, so it comes last."""
+    W = 900
+    parts, y = [], 0
+
+    # 1. who, and what they need
+    parts.append(_caption(0, y + 12, "谁 · 在什么场景下 · 需要什么"))
+    y += 26
+    who_svg, who_h = _box(0, y, 240, m["who"]["label"], m["who"].get("sub", ""))
+    parts.append(who_svg)
+    need_lines = wrap_px(m["need"], W - 276, 14.5, 3)
+    ny = y + 22
+    for line in need_lines:
+        parts.append(f'<text x="276" y="{ny}" font-size="14.5" fill="var(--primary)">'
+                     f'{esc(line)}</text>')
+        ny += 23
+    y += max(who_h, len(need_lines) * 23 + 6) + 30
+
+    # 2. the old way vs this company's way
+    parts.append(f'<line x1="0" y1="{y - 16}" x2="{W}" y2="{y - 16}" stroke="var(--grid)"/>')
+    parts.append(_caption(0, y + 4, "原来怎么解决  →  这家公司怎么解决"))
+    y += 18
+    bw = 402
+    b1, h1 = _box(0, y, bw, m["before"]["label"], m["before"].get("pain", ""))
+    b2, h2 = _box(W - bw, y, bw, m["solution"]["label"], m["solution"].get("detail", ""),
+                  accent=True)
+    parts += [b1, b2]
+    mid = y + max(h1, h2) / 2
+    parts.append(f'<line x1="{bw + 14}" y1="{mid}" x2="{W - bw - 23}" y2="{mid}" '
+                 f'stroke="var(--accent)" stroke-width="2" marker-end="url(#ah)"/>')
+    y += max(h1, h2) + 30
+
+    # 3. who pays, and why it is worth that much to them
+    parts.append(f'<line x1="0" y1="{y - 16}" x2="{W}" y2="{y - 16}" stroke="var(--grid)"/>')
+    parts.append(_caption(0, y + 4, "那么，谁为此付钱 · 为什么肯付这个价"))
+    y += 22
+    pay_svg, pay_h = _box(0, y, 300, m["payer"]["label"],
+                          "买的是 " + m["payer"].get("buys", ""), title_size=14)
+    parts.append(pay_svg)
+    why_lines = wrap_px(m["why"], W - 336, 14, 3)
+    wy = y + 22
+    for line in why_lines:
+        parts.append(f'<text x="336" y="{wy}" font-size="14" fill="var(--primary)">'
+                     f'{esc(line)}</text>')
+        wy += 22
+    y += max(pay_h, len(why_lines) * 22 + 6) + 26
+
+    # 4. proof that it is working, and the catch
+    proof = m.get("proof", [])[:4]
+    if proof:
+        parts.append(f'<line x1="0" y1="{y - 14}" x2="{W}" y2="{y - 14}" stroke="var(--grid)"/>')
+        step = W / len(proof)
+        for i, p in enumerate(proof):
+            cx = step * i + step / 2
+            parts.append(f'<text x="{cx}" y="{y + 6}" text-anchor="middle" font-size="11" '
+                         f'fill="var(--muted)">{esc(p.get("k", ""))}</text>')
+            parts.append(f'<text x="{cx}" y="{y + 28}" text-anchor="middle" font-size="17" '
+                         f'font-weight="600" fill="var(--primary)">{esc(p.get("v", ""))}</text>')
+        y += 40
+    if m.get("catch"):
+        for line in wrap_px("代价 · " + m["catch"], W, 12, 2):
+            parts.append(f'<text x="0" y="{y + 10}" font-size="12" fill="var(--muted)">'
+                         f'{esc(line)}</text>')
+            y += 17
+
+    return (f'<svg class="flow" viewBox="0 0 {W} {y + 6}" role="img" aria-label="商业模式：需求、'
+            f'解法与付费理由"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" '
+            f'markerWidth="6" markerHeight="6" orient="auto">'
+            f'<path d="M0,1 L9,5 L0,9 z" fill="var(--accent)"/></marker></defs>'
+            + "".join(parts) + "</svg>")
+
+
+def render_diagram(m):
+    """`need` means the block describes the value logic; otherwise it is an
+    older money-flow block, still rendered until it is rewritten."""
+    if not m:
+        return ""
+    return render_value_svg(m) if m.get("need") else render_model_svg(m)
+
+
 # --- a small markdown renderer, scoped to the shapes our template produces ---
 
 def inline(s):
@@ -325,7 +431,7 @@ def load_reports():
             "growth": table_row(body, "增长倍数") or "见报告",
             "per_head": table_row(body, "人均创收"),
             "north_star": north_star(body),
-            "flow": render_model_svg(parse_model(body)),
+            "flow": render_diagram(parse_model(body)),
             "html": render_markdown(body),
         })
     return items
