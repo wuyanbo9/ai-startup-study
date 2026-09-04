@@ -7,6 +7,7 @@ single self-contained dashboard file.
 """
 
 import html
+import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -77,6 +78,134 @@ def north_star(body):
     return (out[:150] + "…") if len(out) > 150 else out + "。"
 
 
+# --- the business-model diagram ---------------------------------------------
+
+def parse_model(body):
+    m = re.search(r"```model\s*\n(.*?)\n```", body, re.DOTALL)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return None
+
+
+def text_px(s, size):
+    """CJK glyphs are about one em wide; latin ones roughly half that."""
+    return sum(size if ord(c) > 0x2E80 else size * 0.55 for c in s)
+
+
+def _units(s):
+    """CJK breaks anywhere; a run of latin/digits/punctuation stays together."""
+    return re.findall(r"[A-Za-z0-9$%./,+\-–—]+|.", s)
+
+
+def wrap_px(s, max_px, size, max_lines=2):
+    lines, cur = [], ""
+    for ch in _units(s):
+        if text_px(cur + ch, size) > max_px and cur:
+            lines.append(cur)
+            cur = ch
+            if len(lines) == max_lines:
+                break
+        else:
+            cur += ch
+    if len(lines) < max_lines and cur:
+        lines.append(cur)
+    if len(lines) == max_lines and text_px(s, size) > max_px * max_lines:
+        lines[-1] = lines[-1][:-1] + "…"
+    return lines
+
+
+def esc(s):
+    return html.escape(str(s), quote=True)
+
+
+def _node_lines(node, w):
+    return (wrap_px(node.get("label", ""), w - 20, 14, 2),
+            wrap_px(node.get("sub", ""), w - 20, 11, 2) if node.get("sub") else [])
+
+
+def _node_height(label_lines, sub_lines):
+    return 20 + 19 * len(label_lines) + 14 * len(sub_lines) + 10
+
+
+def _node(x, y, w, h, node):
+    label_lines, subs = _node_lines(node, w)
+    cx = x + w / 2
+    top = y + (h - _node_height(label_lines, subs)) / 2
+    out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="10" '
+           f'fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>']
+    for i, line in enumerate(label_lines):
+        out.append(f'<text x="{cx}" y="{top + 24 + i * 19}" text-anchor="middle" '
+                   f'font-size="14" font-weight="600" fill="var(--primary)">{esc(line)}</text>')
+    base = top + 24 + 19 * (len(label_lines) - 1)
+    for i, line in enumerate(subs):
+        out.append(f'<text x="{cx}" y="{base + 19 + i * 14}" text-anchor="middle" '
+                   f'font-size="11" fill="var(--muted)">{esc(line)}</text>')
+    return "".join(out)
+
+
+def _arrow(x1, x2, y, label):
+    mid = (x1 + x2) / 2
+    lines = wrap_px(label, x2 - x1 - 8, 11.5, 2) if label else []
+    out = [f'<line x1="{x1}" y1="{y}" x2="{x2 - 9}" y2="{y}" stroke="var(--accent)" '
+           f'stroke-width="2" marker-end="url(#ah)"/>']
+    for i, line in enumerate(lines):
+        dy = y - 12 - (len(lines) - 1 - i) * 14
+        out.append(f'<text x="{mid}" y="{dy}" text-anchor="middle" font-size="11.5" '
+                   f'fill="var(--secondary)">{esc(line)}</text>')
+    return "".join(out)
+
+
+def render_model_svg(m):
+    """Money flows left to right: who pays -> the company -> where it goes."""
+    if not m or not m.get("vendor"):
+        return ""
+    W, TOP = 900, 46
+    three = bool(m.get("payee"))
+    box_w = 180 if three else 240
+    xs = [0, 360, 720] if three else [90, 570]
+
+    nodes = [m["payer"], m["vendor"]] + ([m["payee"]] if three else [])
+    BOX_H = max(_node_height(*_node_lines(n, box_w)) for n in nodes)
+
+    parts = [_node(xs[0], TOP, box_w, BOX_H, m["payer"]),
+             _node(xs[1], TOP, box_w, BOX_H, m["vendor"])]
+    parts.append(_arrow(xs[0] + box_w, xs[1], TOP + BOX_H / 2, m.get("flow", "")))
+    if three:
+        parts.append(_node(xs[2], TOP, box_w, BOX_H, m["payee"]))
+        parts.append(_arrow(xs[1] + box_w, xs[2], TOP + BOX_H / 2, m.get("outflow", "")))
+
+    y = TOP + BOX_H
+    if m.get("budget"):
+        parts.append(f'<text x="{xs[0] + box_w / 2}" y="{y + 19}" text-anchor="middle" '
+                     f'font-size="11" fill="var(--muted)">预算来源 · {esc(m["budget"])}</text>')
+        y += 22
+
+    metrics = m.get("metrics", [])[:4]
+    if metrics:
+        y += 26
+        parts.append(f'<line x1="0" y1="{y - 16}" x2="{W}" y2="{y - 16}" '
+                     f'stroke="var(--grid)" stroke-width="1"/>')
+        step = W / len(metrics)
+        for i, met in enumerate(metrics):
+            cx = step * i + step / 2
+            parts.append(f'<text x="{cx}" y="{y + 2}" text-anchor="middle" font-size="11" '
+                         f'fill="var(--muted)">{esc(met.get("k", ""))}</text>')
+            parts.append(f'<text x="{cx}" y="{y + 24}" text-anchor="middle" font-size="17" '
+                         f'font-weight="600" fill="var(--primary)">{esc(met.get("v", ""))}</text>')
+        y += 34
+
+    return (f'<svg class="flow" viewBox="0 0 {W} {y + 8}" role="img" '
+            f'aria-label="商业模式资金流向图">'
+            f'<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
+            f'markerHeight="6" orient="auto"><path d="M0,1 L9,5 L0,9 z" fill="var(--accent)"/>'
+            f'</marker></defs>'
+            f'<text x="0" y="16" font-size="11" fill="var(--muted)">资金流向</text>'
+            + "".join(parts) + "</svg>")
+
+
 # --- a small markdown renderer, scoped to the shapes our template produces ---
 
 def inline(s):
@@ -95,6 +224,15 @@ def render_markdown(md):
         stripped = line.strip()
 
         if not stripped:
+            i += 1
+            continue
+
+        # Fenced blocks are data (the ```model payload), not prose — the
+        # diagram renders them instead.
+        if stripped.startswith("```"):
+            i += 1
+            while i < len(lines) and not lines[i].strip().startswith("```"):
+                i += 1
             i += 1
             continue
 
@@ -166,6 +304,7 @@ def load_reports():
             "growth": table_row(body, "增长倍数") or "见报告",
             "per_head": table_row(body, "人均创收"),
             "north_star": north_star(body),
+            "flow": render_model_svg(parse_model(body)),
             "html": render_markdown(body),
         })
     return items
@@ -192,6 +331,7 @@ def build(items):
         </span>
         <span class="date">{html.escape(it['date'])}</span>
       </button>
+      {f'<div class="flow-wrap">{it["flow"]}</div>' if it["flow"] else ""}
       <dl class="facts">
         <div><dt>ARR</dt><dd>{inline(it['arr'])}</dd></div>
         <div><dt>增长倍数</dt><dd>{inline(it['growth'])}</dd></div>
@@ -265,6 +405,8 @@ header p {{ margin:0; color:var(--secondary); font-size:14px; }}
 .card-head[aria-expanded="true"] .name::after {{ content:"▾"; }}
 .sector {{ font-size:12px; color:var(--secondary); }}
 .date {{ font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }}
+.flow-wrap {{ padding:2px 18px 6px; }}
+svg.flow {{ width:100%; height:auto; display:block; overflow:visible; }}
 .facts {{
   display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
   gap:2px; margin:0; padding:0 18px 16px; background:transparent;
