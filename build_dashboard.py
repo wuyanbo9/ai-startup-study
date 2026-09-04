@@ -450,7 +450,15 @@ def inline(s):
     return s
 
 
-def render_markdown(md, model=None):
+def _title_html(text, company, domain):
+    """The H1 reads "<公司名> —— <定位>"; only the name becomes the link."""
+    if company and domain and text.startswith(company):
+        return (f'<a class="site" href="https://{esc(domain)}" target="_blank" '
+                f'rel="noopener">{html.escape(company)}</a>' + inline(text[len(company):]))
+    return inline(text)
+
+
+def render_markdown(md, model=None, company=""):
     out, lines, i = [], md.splitlines(), 0
     while i < len(lines):
         line = lines[i]
@@ -492,8 +500,11 @@ def render_markdown(md, model=None):
 
         if stripped.startswith("#"):
             level = len(stripped) - len(stripped.lstrip("#"))
-            out.append(f"<h{min(level + 1, 6)}>{inline(stripped.lstrip('# ').strip())}"
-                       f"</h{min(level + 1, 6)}>")
+            tag = f"h{min(level + 1, 6)}"
+            txt = stripped.lstrip("# ").strip()
+            body_html = (_title_html(txt, company, (model or {}).get("domain", ""))
+                         if level == 1 else inline(txt))
+            out.append(f"<{tag}>{body_html}</{tag}>")
             i += 1
             continue
 
@@ -553,7 +564,7 @@ def load_reports():
             "sector": meta.get("sector", "未分类"),
             "date": meta.get("date", path.stem[:10]),
             "timeline": render_timeline_svg(parse_model(body) or {}),
-            "html": render_markdown(body, parse_model(body)),
+            "html": render_markdown(body, model, meta.get("company", "")),
         })
     return items
 
@@ -706,6 +717,11 @@ figure.diagram figcaption {{
 }}
 .report hr {{ border:0; border-top:1px solid var(--grid); margin:22px 0; }}
 .report a {{ color:var(--accent); }}
+.report h2 a.site {{
+  color:inherit; text-decoration:underline; text-decoration-color:var(--rule);
+  text-underline-offset:5px; text-decoration-thickness:1px;
+}}
+.report h2 a.site:hover {{ color:var(--accent); text-decoration-color:var(--accent); }}
 footer {{ margin-top:36px; color:var(--muted); font-size:12px; }}
 .toggle {{
   position:fixed; top:16px; right:16px; background:var(--surface); color:var(--secondary);

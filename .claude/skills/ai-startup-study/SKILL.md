@@ -164,7 +164,7 @@ valuation: <最新估值及日期>
 
 ```model
 {
-  "domain":   "公司官网主域名，如 mercor.com —— 看板据此取 logo",
+  "domain":   "公司官网主域名，如 mercor.com —— 看板据此取 logo，并把正文标题里的公司名链到官网",
   "founded":  "创立时间，YYYY 或 YYYY-MM —— 看板据此排序",
   "who":      {"label": "谁有这个需求（≤14 字）", "sub": "规模 / 构成 / 集中度"},
   "need":     "他们到底卡在什么地方。写清楚频次和痛感——一天发生几次、疼在哪里。",
