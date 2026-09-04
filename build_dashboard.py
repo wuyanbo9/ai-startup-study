@@ -548,7 +548,8 @@ def load_reports():
 def build(items):
     sectors = {}
     for it in items:
-        sectors.setdefault(it["sector"].split("（")[0].split("(")[0].strip(), []).append(it["company"])
+        it["skey"] = it["sector"].split("（")[0].split("(")[0].strip()
+        sectors.setdefault(it["skey"], []).append(it["company"])
 
     updated = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
 
@@ -558,7 +559,7 @@ def build(items):
     cards = []
     for n, it in enumerate(items):
         cards.append(f"""
-    <article class="card">
+    <article class="card" data-sector="{esc(it["skey"])}">
       <button class="card-head" aria-expanded="false" data-target="r{n}">
         <span class="card-title">
           {f'<img class="logo" src="{it["logo"]}" alt="" width="22" height="22">' if it["logo"] else ""}
@@ -615,9 +616,17 @@ header h1 {{ font-size:26px; margin:0; letter-spacing:-.01em; }}
 .tile .v {{ font-size:28px; font-weight:600; margin-top:2px; }}
 .sectors {{ display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 28px; }}
 .chip {{
-  font-size:12px; color:var(--secondary); background:var(--surface);
-  border:1px solid var(--border); border-radius:999px; padding:4px 11px;
+  font:inherit; font-size:12px; color:var(--secondary); background:var(--surface);
+  border:1px solid var(--border); border-radius:999px; padding:5px 12px; cursor:pointer;
 }}
+.chip:hover {{ border-color:var(--rule); }}
+.chip .n {{ color:var(--muted); font-variant-numeric:tabular-nums; }}
+.chip[aria-pressed="true"] {{
+  background:var(--accent); border-color:var(--accent); color:#fff;
+}}
+.chip[aria-pressed="true"] .n {{ color:rgba(255,255,255,.75); }}
+.chip.clear {{ color:var(--muted); }}
+.count {{ font-size:12px; color:var(--muted); align-self:center; }}
 .card {{
   background:var(--surface); border:1px solid var(--border); border-radius:12px;
   margin-bottom:14px; overflow:hidden;
@@ -680,7 +689,10 @@ footer {{ margin-top:36px; color:var(--muted); font-size:12px; }}
 </div>
 
 <div class="sectors">
-{"".join(f'<span class="chip">{html.escape(s)} · {html.escape("、".join(c))}</span>' for s, c in sectors.items())}
+{"".join(f'<button type="button" class="chip" data-sector="{esc(s)}" aria-pressed="false">'
+         f'{html.escape(s)} <span class="n">{len(c)}</span></button>' for s, c in sectors.items())}
+<button type="button" class="chip clear" id="clr" hidden>清空选择</button>
+<span class="count" id="cnt" hidden></span>
 </div>
 
 {"".join(cards)}
@@ -698,6 +710,38 @@ document.querySelectorAll('.card-head').forEach(function (b) {{
     panel.hidden = open;
   }});
 }});
+var chips = Array.prototype.slice.call(document.querySelectorAll('.chip[data-sector]'));
+var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
+var clr = document.getElementById('clr');
+var cnt = document.getElementById('cnt');
+var picked = [];
+
+function applyFilter() {{
+  var on = picked.length > 0;
+  var shown = 0;
+  cards.forEach(function (c) {{
+    var hit = !on || picked.indexOf(c.dataset.sector) !== -1;
+    c.hidden = !hit;
+    if (hit) shown++;
+  }});
+  chips.forEach(function (ch) {{
+    ch.setAttribute('aria-pressed', picked.indexOf(ch.dataset.sector) !== -1 ? 'true' : 'false');
+  }});
+  clr.hidden = !on;
+  cnt.hidden = !on;
+  cnt.textContent = '显示 ' + shown + ' / ' + cards.length + ' 家';
+}}
+
+chips.forEach(function (ch) {{
+  ch.addEventListener('click', function () {{
+    var s = ch.dataset.sector;
+    var i = picked.indexOf(s);
+    if (i === -1) {{ picked.push(s); }} else {{ picked.splice(i, 1); }}
+    applyFilter();
+  }});
+}});
+clr.addEventListener('click', function () {{ picked = []; applyFilter(); }});
+
 var btn = document.getElementById('t');
 function paint(v) {{
   document.documentElement.setAttribute('data-theme', v);
