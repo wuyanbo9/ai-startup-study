@@ -2,7 +2,8 @@
 company: Carbon Robotics
 slug: carbon-robotics
 date: 2026-09-13
-sector: 硬件 / 机器人（农业 Physical AI）
+layer: 应用
+sector: 工业与制造
 growth_tier: 第二梯队
 arr: $100M+ 年度收入（财年截至 2026-01-31）`[官方]`——注意是一次性设备销售收入，不是 ARR
 valuation: 未公开；二级市场第三方口径约 $548M（2026）`[估算]`

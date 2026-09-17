@@ -47,6 +47,10 @@ def logo_data_uri(slug, domain):
     b64 = base64.b64encode(cached.read_bytes()).decode()
     return f"data:image/png;base64,{b64}"
 
+# Stack order for the `layer` chips — bottom of the stack first, so the row
+# reads Infra → 应用 rather than by company count.
+LAYER_ORDER = ["Infra", "模型与数据", "Agent 与开发者基建", "应用"]
+
 # Palette values come from the dataviz skill's reference instance.
 PALETTE = {
     "surface": "#fcfcfb", "plane": "#f9f9f7", "primary": "#0b0b0b",
@@ -562,6 +566,7 @@ def load_reports():
                                   model.get("domain", "")),
             "company": meta.get("company", path.stem),
             "sector": meta.get("sector", "未分类"),
+            "layer": meta.get("layer", "未分层"),
             "date": meta.get("date", path.stem[:10]),
             "timeline": render_timeline_svg(parse_model(body) or {}),
             "html": render_markdown(body, model, meta.get("company", "")),
@@ -570,10 +575,12 @@ def load_reports():
 
 
 def build(items):
-    sectors = {}
+    # Both are controlled vocabularies now (see SKILL.md), so the values are
+    # used as filter keys verbatim — no parsing out a prefix.
+    sectors, layers = {}, {}
     for it in items:
-        it["skey"] = it["sector"].split("（")[0].split("(")[0].strip()
-        sectors.setdefault(it["skey"], []).append(it["company"])
+        sectors.setdefault(it["sector"], []).append(it["company"])
+        layers.setdefault(it["layer"], []).append(it["company"])
 
     updated = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
 
@@ -583,12 +590,13 @@ def build(items):
     cards = []
     for n, it in enumerate(items):
         cards.append(f"""
-    <article class="card" data-sector="{esc(it["skey"])}" data-date="{esc(it["date"])}" data-arr="{it["arr"]:.4f}" data-cagr="{it["cagr"]:.4f}" data-founded="{it["founded"]}">
+    <article class="card" data-sector="{esc(it["sector"])}" data-layer="{esc(it["layer"])}" data-date="{esc(it["date"])}" data-arr="{it["arr"]:.4f}" data-cagr="{it["cagr"]:.4f}" data-founded="{it["founded"]}">
       <button class="card-head" aria-expanded="false" data-target="r{n}">
         <span class="card-title">
           {f'<img class="logo" src="{it["logo"]}" alt="" width="22" height="22">' if it["logo"] else ""}
           <span class="name">{html.escape(it['company'])}</span>
           <span class="sector">{html.escape(it['sector'])}</span>
+          <span class="layer">{html.escape(it['layer'])}</span>
         </span>
         <span class="date">{html.escape(it['date'])}</span>
       </button>
@@ -640,6 +648,16 @@ header h1 {{ font-size:26px; margin:0; letter-spacing:-.01em; }}
 .tile .v {{ font-size:28px; font-weight:600; margin-top:2px; }}
 .filters {{ margin:22px 0 26px; }}
 .chips {{ display:flex; flex-wrap:wrap; gap:8px; }}
+.chiprow {{ display:flex; align-items:baseline; gap:10px; }}
+.chiprow + .chiprow {{ margin-top:10px; }}
+.rowlab {{
+  flex:none; width:2.4em; padding-top:5px;
+  font-size:12px; color:var(--muted); letter-spacing:.06em;
+}}
+@media (max-width:560px) {{
+  .chiprow {{ display:block; }}
+  .rowlab {{ display:block; width:auto; padding:0 0 6px; }}
+}}
 .sortbox {{
   display:block; margin-top:14px;
   font:inherit; font-size:12.5px; color:var(--secondary); background:var(--surface);
@@ -692,6 +710,10 @@ header h1 {{ font-size:26px; margin:0; letter-spacing:-.01em; }}
 .name::after {{ content:"▸"; color:var(--muted); font-size:12px; margin-left:8px; }}
 .card-head[aria-expanded="true"] .name::after {{ content:"▾"; }}
 .sector {{ font-size:12px; color:var(--secondary); }}
+.layer {{
+  font-size:11px; color:var(--muted); border:1px solid var(--border);
+  border-radius:999px; padding:1px 8px; white-space:nowrap;
+}}
 .date {{ font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }}
 .flow-wrap {{ padding:2px 18px 10px; }}
 svg.flow, svg.tl {{ width:100%; height:auto; display:block; overflow:visible; }}
@@ -740,11 +762,24 @@ footer {{ margin-top:36px; color:var(--muted); font-size:12px; }}
 </div>
 
 <div class="filters">
+<div class="chiprow">
+<span class="rowlab">层</span>
 <div class="chips">
-{"".join(f'<button type="button" class="chip" data-sector="{esc(s)}" aria-pressed="false">'
-         f'<span class="lab">{html.escape(s.split(" / ")[0])}</span>'
+{"".join(f'<button type="button" class="chip" data-kind="layer" data-key="{esc(s)}" aria-pressed="false">'
+         f'<span class="lab">{html.escape(s)}</span>'
+         f'<span class="n">{len(c)}</span></button>'
+         for s, c in sorted(layers.items(), key=lambda kv: LAYER_ORDER.index(kv[0])
+                            if kv[0] in LAYER_ORDER else len(LAYER_ORDER)))}
+</div>
+</div>
+<div class="chiprow">
+<span class="rowlab">赛道</span>
+<div class="chips">
+{"".join(f'<button type="button" class="chip" data-kind="sector" data-key="{esc(s)}" aria-pressed="false">'
+         f'<span class="lab">{html.escape(s)}</span>'
          f'<span class="n">{len(c)}</span></button>'
          for s, c in sorted(sectors.items(), key=lambda kv: (-len(kv[1]), kv[0])))}
+</div>
 </div>
 <select id="sort" class="sortbox" aria-label="排序方式">
   <option value="date">报告时间（最新在前）</option>
@@ -775,35 +810,26 @@ document.querySelectorAll('.card-head').forEach(function (b) {{
     panel.hidden = open;
   }});
 }});
-var chips = Array.prototype.slice.call(document.querySelectorAll('.chip[data-sector]'));
+var chips = Array.prototype.slice.call(document.querySelectorAll('.chip[data-key]'));
 var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
 var clr = document.getElementById('clr');
 var cnt = document.getElementById('cnt');
-var picked = [];
+// Two independent axes: picks within one axis are OR'd, the axes are AND'd.
+// So 「应用」+「法律」+「医疗健康」 reads as: application layer, legal or health.
+var picked = {{ layer: [], sector: [] }};
 
 function applyFilter() {{
-  var on = picked.length > 0;
+  var on = picked.layer.length + picked.sector.length > 0;
   var shown = 0;
   cards.forEach(function (c) {{
-    var hit = !on || picked.indexOf(c.dataset.sector) !== -1;
+    var hit = (!picked.layer.length || picked.layer.indexOf(c.dataset.layer) !== -1) &&
+              (!picked.sector.length || picked.sector.indexOf(c.dataset.sector) !== -1);
     c.hidden = !hit;
     if (hit) shown++;
   }});
-  var list = document.getElementById('list');
-var sortSel = document.getElementById('sort');
-function num(c, k) {{ return parseFloat(c.dataset[k]) || 0; }}
-function applySort() {{
-  var k = sortSel.value;
-  var arr = cards.slice().sort(function (a, b) {{
-    if (k === 'date') return a.dataset.date < b.dataset.date ? 1 : a.dataset.date > b.dataset.date ? -1 : 0;
-    return num(b, k) - num(a, k);
-  }});
-  arr.forEach(function (c) {{ list.appendChild(c); }});
-}}
-sortSel.addEventListener('change', applySort);
-
-chips.forEach(function (ch) {{
-    ch.setAttribute('aria-pressed', picked.indexOf(ch.dataset.sector) !== -1 ? 'true' : 'false');
+  chips.forEach(function (ch) {{
+    var sel = picked[ch.dataset.kind].indexOf(ch.dataset.key) !== -1;
+    ch.setAttribute('aria-pressed', sel ? 'true' : 'false');
   }});
   document.getElementById('ctrl').hidden = !on;
   cnt.textContent = '显示 ' + shown + ' / ' + cards.length + ' 家';
@@ -824,13 +850,17 @@ sortSel.addEventListener('change', applySort);
 
 chips.forEach(function (ch) {{
   ch.addEventListener('click', function () {{
-    var s = ch.dataset.sector;
-    var i = picked.indexOf(s);
-    if (i === -1) {{ picked.push(s); }} else {{ picked.splice(i, 1); }}
+    var bucket = picked[ch.dataset.kind];
+    var i = bucket.indexOf(ch.dataset.key);
+    if (i === -1) {{ bucket.push(ch.dataset.key); }} else {{ bucket.splice(i, 1); }}
     applyFilter();
   }});
 }});
-clr.addEventListener('click', function () {{ picked = []; applyFilter(); }});
+clr.addEventListener('click', function () {{
+  picked.layer = [];
+  picked.sector = [];
+  applyFilter();
+}});
 
 var btn = document.getElementById('t');
 function paint(v) {{

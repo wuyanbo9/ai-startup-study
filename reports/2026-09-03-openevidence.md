@@ -2,7 +2,8 @@
 company: OpenEvidence
 slug: openevidence
 date: 2026-09-03
-sector: 医疗 AI（临床决策支持 / 医生端信息平台）
+layer: 应用
+sector: 医疗健康
 growth_tier: 第一梯队
 arr: 约 $300M 年化收入（2026/07）[媒体]
 valuation: $12B（2026/01 Series D 完成）[媒体]；2026/07 曾议价 $20B 但未落地 [媒体]

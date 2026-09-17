@@ -2,7 +2,8 @@
 company: ChipAgents
 slug: chipagents
 date: 2026-09-14
-sector: 半导体 EDA / 芯片设计与验证（垂直 Agent）
+layer: 应用
+sector: 工业与制造
 growth_tier: 第一梯队
 arr: 绝对值从未公布。官方只给倍数：2026-02「同比 140x」`[媒体]`、2026 上半年「6x」`[官方]`；推算 2026 年中约 $25–40M `[估算]`
 valuation: 未公开（2026-07 的 $60M A2 轮未披露投后估值）`[官方]`

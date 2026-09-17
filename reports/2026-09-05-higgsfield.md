@@ -2,7 +2,8 @@
 company: Higgsfield
 slug: higgsfield
 date: 2026-09-05
-sector: 视频生成 / AI 广告素材
+layer: 应用
+sector: 销售与市场
 growth_tier: 第一梯队
 arr: 约 $700M 年化（2026-08）
 valuation: $5.4B（2026-08，Series B，DST Global 领投）

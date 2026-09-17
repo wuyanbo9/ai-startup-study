@@ -2,7 +2,8 @@
 company: HappyRobot
 slug: happyrobot
 date: 2026-09-16
-sector: 物流 / 供应链（货运运营 Agent）
+layer: 应用
+sector: 物流与供应链
 growth_tier: 第一梯队
 arr: 未公开；按官方增长倍数链推算 2026-08 约 $80–100M（中值 $90M）
 valuation: $1.22B post-money（2026-08-04，C 轮）
