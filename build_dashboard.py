@@ -423,8 +423,21 @@ def render_timeline_svg(m):
 
     note = m.get("unit", "年化收入")
     span = xs[-1] - xs[0]
-    mult = vs[-1] / vs[0]
-    mtxt = f"{mult:.0f}" if mult >= 10 else f"{mult:.1f}"
+    # A curve may legitimately start at zero (the company had no revenue yet).
+    # Measure the multiple from the first non-zero point instead of dividing by
+    # zero, and say so in the headline so the number is not read as the whole
+    # span's growth.
+    base = next((i for i, v in enumerate(vs) if v > 0), None)
+    if base is None:
+        mtxt, span = "—", span
+    elif base == 0:
+        mult = vs[-1] / vs[0]
+        mtxt = f"{mult:.0f}" if mult >= 10 else f"{mult:.1f}"
+    else:
+        mult = vs[-1] / vs[base]
+        mtxt = (f"{mult:.0f}" if mult >= 10 else f"{mult:.1f}")
+        span = xs[-1] - xs[base]
+        note = note + f"（起点 {pts[base]['d']} 之前为 0，倍数自该点起算）"
     return (f'<svg class="tl" viewBox="0 0 {W} {H}" role="img" aria-label="规模随时间的变化">'
             f'<text x="0" y="13" font-size="12" font-weight="600" fill="var(--secondary)">'
             f'{esc(note)}</text>'
@@ -552,9 +565,13 @@ def load_reports():
         arr = float(tl[-1]["v"]) if tl else 0.0
         cagr = 0.0
         if len(tl) >= 2:
-            span = _months(tl[-1]["d"]) - _months(tl[0]["d"])
-            if span > 0 and float(tl[0]["v"]) > 0:
-                cagr = (arr / float(tl[0]["v"])) ** (12 / span)
+            # Start from the first non-zero point: a curve that begins at zero
+            # would otherwise sort last on growth rate, which is backwards.
+            nz = next((p for p in tl if float(p["v"]) > 0), None)
+            if nz is not None:
+                span = _months(tl[-1]["d"]) - _months(nz["d"])
+                if span > 0:
+                    cagr = (arr / float(nz["v"])) ** (12 / span)
         fo = str(model.get("founded", ""))
         fm = re.match(r"(\d{4})(?:-(\d{2}))?", fo)
         founded = int(fm.group(1)) * 12 + int(fm.group(2) or 6) if fm else 0
